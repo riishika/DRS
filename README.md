@@ -1,4 +1,4 @@
-# Virality Prediction Simulator
+# Breakout Prediction Simulator
 
 A pre-flight content evaluator that uses 260 AI persona agents to simulate how a short-form video would spread on Instagram before you post it.
 
@@ -60,7 +60,7 @@ sudo apt-get install ffmpeg
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd virality-prediction-simulator
+cd breakout-prediction-simulator
 
 # Install dependencies
 npm install
@@ -105,7 +105,7 @@ src/
     ActionFeed.tsx              # Real-time persona decisions feed
     ReasoningPanel.tsx          # Agent reasoning traces (why they decided)
     RedTeamPanel.tsx            # Risk assessment from guardian agents
-    ResultsPanel.tsx            # Final virality + risk scores
+    ResultsPanel.tsx            # Final breakout + risk scores
     WhatIfPanel.tsx             # Parameter tweaking for re-runs
     SimulationView.tsx          # Wave metrics charts
     CommentFeed.tsx             # Generated persona comments

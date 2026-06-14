@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Virality Prediction Simulator",
-  description: "AI-powered virality prediction — upload a reel and watch 260 persona agents simulate real engagement"
+  title: "Breakout Prediction Simulator",
+  description: "AI-powered breakout prediction — upload a reel and watch 260 persona agents simulate real engagement"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {

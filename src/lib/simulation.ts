@@ -162,7 +162,7 @@ function isCategoryRelated(persona: Persona, category: string): boolean {
     gaming: ["gaming", "fps", "game", "esport", "clutch", "stream"],
     music: ["kpop", "music", "dance", "beat", "performance"],
     education: ["content strategy", "growth", "analytics", "algorithm"],
-    "creator-education": ["content strategy", "growth", "analytics", "algorithm", "viral"],
+    "creator-education": ["content strategy", "growth", "analytics", "algorithm", "breakout"],
     lifestyle: ["fashion", "trend", "aesthetic", "minimalism"],
     business: ["startup", "venture", "ecommerce", "marketing", "invest"],
     pets: ["dog", "puppy", "pet", "cute"],
@@ -312,7 +312,7 @@ export function computeWaveMetrics(wave: number, actions: AgentAction[]): WaveMe
   };
 }
 
-function computeViralityScore(waves: WaveMetrics[]): number {
+function computeBreakoutScore(waves: WaveMetrics[]): number {
   const totalImpressions = waves.reduce((sum, wave) => sum + wave.impressions, 0);
   const weightedShareRate = waves.reduce((sum, wave) => sum + (wave.shareRate * (wave.wave + 1)), 0) / 9;
   const weightedWatch = waves.reduce((sum, wave) => sum + wave.avgWatchDuration, 0) / (waves.length * 100);
@@ -567,7 +567,7 @@ function deterministicRedTeam(analysis: VideoAnalysis): RedTeamFlag[] {
 
   const niche = analysis.contentCategory.toLowerCase();
   if (!["comedy", "humor", "memes", "trending"].some((t) => niche.includes(t))) {
-    flags.push({ severity: "low", category: "audience_alienation", description: `Niche content (${analysis.contentCategory}) limits viral ceiling — broad audiences may not engage`, agent: "Audience Scope Analyzer" });
+    flags.push({ severity: "low", category: "audience_alienation", description: `Niche content (${analysis.contentCategory}) limits breakout ceiling — broad audiences may not engage`, agent: "Audience Scope Analyzer" });
   }
 
   if (hasUsableTranscript(analysis) && analysis.transcript.length > 50) {
@@ -594,7 +594,7 @@ function computeRiskScore(flags: RedTeamFlag[]): number {
   return Math.min(100, score);
 }
 
-export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator<SSEEvent, SimulationResult> {
+export async function* simulateBreakout(analysis: VideoAnalysis): AsyncGenerator<SSEEvent, SimulationResult> {
   log("engine", `=== Starting simulation for analysis: ${analysis.id} (${analysis.source}) ===`);
   log("engine", `Content: "${analysis.contentCategory}" | Hook: ${analysis.hookScore} | Transcript: ${analysis.transcript.length} chars (${analysis.transcriptStatus})`);
 
@@ -727,7 +727,7 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
   }
 
   const totalMetrics = computeWaveMetrics(0, allActions);
-  const viralityScore = computeViralityScore(waveMetrics.length > 0 ? waveMetrics : [totalMetrics]);
+  const breakoutScore = computeBreakoutScore(waveMetrics.length > 0 ? waveMetrics : [totalMetrics]);
   const targetAudienceActions = getTargetAudienceActions(allActions, allPersonas, analysis);
   const targetMetrics = computeWaveMetrics(0, targetAudienceActions);
   const targetAudienceScore = computeTargetAudienceScore(allActions, allPersonas, analysis);
@@ -736,13 +736,13 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
   const redTeamFlags = await redTeamPromise;
   const riskScore = computeRiskScore(redTeamFlags);
 
-  log("engine", `=== Simulation complete — Score: ${viralityScore}/100, Risk: ${riskScore}/100, Total actions: ${allActions.length}, Comments: ${comments.length} ===`);
+  log("engine", `=== Simulation complete — Score: ${breakoutScore}/100, Risk: ${riskScore}/100, Total actions: ${allActions.length}, Comments: ${comments.length} ===`);
 
   const result: SimulationResult = {
     analysisId: analysis.id,
     promotedToWave2: waveMetrics[0]?.engagementRate >= 0.10,
     promotedToWave3: (waveMetrics[1]?.engagementRate || 0) >= 0.06 && (waveMetrics[1]?.shareRate || 0) >= 0.02,
-    viralityScore,
+    breakoutScore,
     riskScore,
     riskFlags: redTeamFlags,
     strongestDemographic: strongestDemographic(allActions, allPersonas),

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Virality Prediction Simulator - Judge Path"
+echo "Breakout Prediction Simulator - Judge Path"
 echo "1) Ensure dependencies are installed: npm install"
 echo "2) Start dev server: npm run dev"
 echo "3) Open http://localhost:3000"

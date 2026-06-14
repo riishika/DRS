@@ -151,7 +151,7 @@ export async function processVideoUpload(file: File): Promise<ProcessedVideo> {
     throw new Error("Video is too large. Max size is 100MB.");
   }
 
-  const workingDir = await mkdtemp(path.join(os.tmpdir(), "virality-"));
+  const workingDir = await mkdtemp(path.join(os.tmpdir(), "breakout-"));
   log("upload", `Working directory: ${workingDir}`);
 
   const videoPath = path.join(workingDir, `${randomUUID()}-${file.name}`);

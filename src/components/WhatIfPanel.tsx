@@ -22,7 +22,7 @@ export function WhatIfPanel({ analysis, result, onRerun, isRunning, previousScor
   const [category, setCategory] = useState(analysis.contentCategory);
 
   const hasChanges = hookScore !== analysis.hookScore || category !== analysis.contentCategory;
-  const delta = previousScore !== null ? result.viralityScore - previousScore : null;
+  const delta = previousScore !== null ? result.breakoutScore - previousScore : null;
 
   return (
     <motion.section
@@ -113,8 +113,8 @@ export function WhatIfPanel({ analysis, result, onRerun, isRunning, previousScor
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-zinc-500">{previousScore}</span>
             <span className="text-[10px] text-zinc-700">→</span>
-            <span className={`text-xs font-mono font-bold ${result.viralityScore > previousScore ? "text-accent-lime" : "text-accent-rose"}`}>
-              {result.viralityScore}
+            <span className={`text-xs font-mono font-bold ${result.breakoutScore > previousScore ? "text-accent-lime" : "text-accent-rose"}`}>
+              {result.breakoutScore}
             </span>
           </div>
         </div>

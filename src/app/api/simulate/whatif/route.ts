@@ -79,12 +79,12 @@ export async function POST(request: Request): Promise<Response> {
   const engagementScore = metrics.engagementScore;
   const shareBoost = metrics.shares * 10;
   const watchBoost = metrics.avgWatchDuration * 0.3;
-  const estimatedViralityScore = Math.min(100, Math.max(0, Math.round(
+  const estimatedBreakoutScore = Math.min(100, Math.max(0, Math.round(
     (engagementScore * 2) + shareBoost + watchBoost
   )));
 
   return Response.json({
-    viralityScore: estimatedViralityScore,
+    breakoutScore: estimatedBreakoutScore,
     metrics,
     actions: actions.map((a) => ({ personaId: a.personaId, action: a.action, reasoning: a.reasoning, watchDuration: a.watchDuration })),
     tweaks: { hookScore: tweaked.hookScore, category: tweaked.contentCategory }

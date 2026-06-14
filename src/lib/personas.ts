@@ -25,7 +25,7 @@ const ARCHETYPES: Omit<Persona, "id">[] = [
   { name: "Minimalist", age: 37, interests: ["minimalism", "decluttering", "capsule wardrobe"], scrollBehavior: "moderate", engagementStyle: "lurker", attentionSpan: 12, contentPreferences: ["clean aesthetics", "organization", "less is more"], followerCount: 460 },
   { name: "Dog Parent", age: 27, interests: ["dogs", "puppy training", "dog breeds"], scrollBehavior: "fast", engagementStyle: "sharer", attentionSpan: 7, contentPreferences: ["cute dogs", "training tips", "dog fails"], followerCount: 1320 },
   { name: "Local Activist", age: 40, interests: ["social justice", "local politics", "community organizing"], scrollBehavior: "moderate", engagementStyle: "commenter", attentionSpan: 16, contentPreferences: ["awareness posts", "petition content", "community stories"], followerCount: 690 },
-  { name: "Content Strategist", age: 35, interests: ["content strategy", "algorithm hacks", "analytics"], scrollBehavior: "deep", engagementStyle: "sharer", attentionSpan: 25, contentPreferences: ["growth frameworks", "viral breakdowns", "engagement tactics"], followerCount: 4600 }
+  { name: "Content Strategist", age: 35, interests: ["content strategy", "algorithm hacks", "analytics"], scrollBehavior: "deep", engagementStyle: "sharer", attentionSpan: 25, contentPreferences: ["growth frameworks", "breakout breakdowns", "engagement tactics"], followerCount: 4600 }
 ];
 
 export function getPersonaPool(): Persona[] {

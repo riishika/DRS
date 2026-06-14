@@ -140,7 +140,7 @@ export default function StatsPage(): JSX.Element {
           <h1 className="text-lg font-semibold tracking-tight text-white">Simulation Stats</h1>
           {result && (
             <span className="text-[10px] bg-accent-lime/10 text-accent-lime px-2 py-0.5 rounded-full">
-              Score: {result.viralityScore}/100
+              Score: {result.breakoutScore}/100
             </span>
           )}
         </div>

@@ -22,7 +22,7 @@ export const TARGET_AUDIENCES: TargetAudience[] = [
     label: "Creators & Growth Nerds",
     description: "Creators, strategists, and social media operators looking for formats that work.",
     interests: ["content strategy", "algorithm hacks", "analytics", "growth", "creator tools"],
-    contentPreferences: ["viral breakdowns", "growth frameworks", "engagement tactics", "clear examples"],
+    contentPreferences: ["breakout breakdowns", "growth frameworks", "engagement tactics", "clear examples"],
     recommendationAngles: ["format breakdown", "save-worthy framework", "repeatable tactic"]
   },
   {

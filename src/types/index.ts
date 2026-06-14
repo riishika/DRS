@@ -105,7 +105,7 @@ export type SimulationResult = {
   analysisId: string;
   promotedToWave2: boolean;
   promotedToWave3: boolean;
-  viralityScore: number;
+  breakoutScore: number;
   riskScore: number;
   riskFlags: RedTeamFlag[];
   strongestDemographic: string;

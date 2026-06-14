@@ -1,4 +1,4 @@
-# Virality Prediction Simulator - Project Narrative
+# Breakout Prediction Simulator - Project Narrative
 
 ## Problem
 Creators publish short-form videos with little predictive feedback before posting. They need a fast pre-publish signal for potential reach and audience reaction.

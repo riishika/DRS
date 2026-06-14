@@ -7,21 +7,21 @@ const simulationResults = new Map<string, SimulationResult>();
 // Persist across hot reloads in development
 if (typeof globalThis !== "undefined") {
   const g = globalThis as unknown as {
-    __virality_analyses?: Map<string, VideoAnalysis>;
-    __virality_results?: Map<string, SimulationResult>;
+    __breakout_analyses?: Map<string, VideoAnalysis>;
+    __breakout_results?: Map<string, SimulationResult>;
   };
-  if (!g.__virality_analyses) g.__virality_analyses = analyses;
-  if (!g.__virality_results) g.__virality_results = simulationResults;
+  if (!g.__breakout_analyses) g.__breakout_analyses = analyses;
+  if (!g.__breakout_results) g.__breakout_results = simulationResults;
 }
 
 function getAnalysesMap(): Map<string, VideoAnalysis> {
-  const g = globalThis as unknown as { __virality_analyses?: Map<string, VideoAnalysis> };
-  return g.__virality_analyses || analyses;
+  const g = globalThis as unknown as { __breakout_analyses?: Map<string, VideoAnalysis> };
+  return g.__breakout_analyses || analyses;
 }
 
 function getResultsMap(): Map<string, SimulationResult> {
-  const g = globalThis as unknown as { __virality_results?: Map<string, SimulationResult> };
-  return g.__virality_results || simulationResults;
+  const g = globalThis as unknown as { __breakout_results?: Map<string, SimulationResult> };
+  return g.__breakout_results || simulationResults;
 }
 
 export function setAnalysis(analysis: VideoAnalysis): void {

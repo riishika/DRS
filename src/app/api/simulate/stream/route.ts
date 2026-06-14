@@ -1,5 +1,5 @@
 import { getAnalysis, setSimulationResult } from "@/lib/cache";
-import { simulateVirality } from "@/lib/simulation";
+import { simulateBreakout } from "@/lib/simulation";
 import { formatSseEvent } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +41,7 @@ export async function GET(request: Request): Promise<Response> {
         })));
         eventCount++;
 
-        const runner = simulateVirality(analysis);
+        const runner = simulateBreakout(analysis);
         while (true) {
           const { value, done } = await runner.next();
           if (done) {
@@ -54,7 +54,7 @@ export async function GET(request: Request): Promise<Response> {
             })));
             eventCount++;
             const elapsed = Date.now() - startTime;
-            log(`Simulation complete — ${eventCount} events in ${elapsed}ms, viralityScore: ${value.viralityScore}`);
+            log(`Simulation complete — ${eventCount} events in ${elapsed}ms, breakoutScore: ${value.breakoutScore}`);
             break;
           }
           controller.enqueue(encoder.encode(formatSseEvent(value)));

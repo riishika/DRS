@@ -12,10 +12,10 @@ type ResultsPanelProps = {
 export function ResultsPanel({ result }: ResultsPanelProps): JSX.Element {
   if (!result) return <></>;
 
-  const scoreColor = result.viralityScore >= 70 ? "text-accent-lime" : result.viralityScore >= 40 ? "text-accent-gold" : "text-accent-rose";
+  const scoreColor = result.breakoutScore >= 70 ? "text-accent-lime" : result.breakoutScore >= 40 ? "text-accent-gold" : "text-accent-rose";
   const riskColor = result.riskScore >= 50 ? "text-red-400" : result.riskScore >= 25 ? "text-amber-400" : "text-accent-lime";
   const targetAudience = result.targetAudience || getTargetAudience("general");
-  const targetAudienceScore = typeof result.targetAudienceScore === "number" ? result.targetAudienceScore : result.viralityScore;
+  const targetAudienceScore = typeof result.targetAudienceScore === "number" ? result.targetAudienceScore : result.breakoutScore;
   const targetAudienceRecommendations = result.targetAudienceRecommendations?.length
     ? result.targetAudienceRecommendations
     : result.topRecommendations;
@@ -41,9 +41,9 @@ export function ResultsPanel({ result }: ResultsPanelProps): JSX.Element {
             transition={{ type: "spring", delay: 0.2 }}
             className={`text-4xl font-bold ${scoreColor}`}
           >
-            {result.viralityScore}
+            {result.breakoutScore}
           </motion.p>
-          <p className="text-[10px] text-zinc-600 mt-1">Virality /100</p>
+          <p className="text-[10px] text-zinc-600 mt-1">Breakout /100</p>
         </div>
         <div className="text-center">
           <motion.p

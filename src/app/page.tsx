@@ -144,7 +144,7 @@ export default function HomePage(): JSX.Element {
   async function handleWhatIf(tweaks: { hookScore?: number; category?: string }) {
     if (!analysis || !result) return;
     setWhatIfRunning(true);
-    setPreviousScore(result.viralityScore);
+    setPreviousScore(result.breakoutScore);
     try {
       const res = await fetch("/api/simulate/whatif", {
         method: "POST",
@@ -152,8 +152,8 @@ export default function HomePage(): JSX.Element {
         body: JSON.stringify({ analysisId: analysis.id, ...tweaks })
       });
       if (res.ok) {
-        const data = await res.json() as { viralityScore: number };
-        setComplete({ ...result, viralityScore: data.viralityScore });
+        const data = await res.json() as { breakoutScore: number };
+        setComplete({ ...result, breakoutScore: data.breakoutScore });
       }
     } finally {
       setWhatIfRunning(false);
@@ -183,7 +183,7 @@ export default function HomePage(): JSX.Element {
             </svg>
           </div>
           <h1 className="text-lg font-semibold tracking-tight text-white">
-            Virality Simulator
+            Breakout Simulator
           </h1>
         </div>
 
