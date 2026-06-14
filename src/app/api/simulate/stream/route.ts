@@ -25,7 +25,7 @@ export async function GET(request: Request): Promise<Response> {
     logErr(`Analysis not found in cache for ${analysisId}. Server may have restarted.`);
     return new Response("Analysis not found. Please re-upload your video.", { status: 404 });
   }
-  log(`Using analysis: source=${analysis.source}, category=${analysis.contentCategory}`);
+  log(`Using analysis: source=${analysis.source}, category=${analysis.contentCategory}, target=${analysis.targetAudience.label}`);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -37,7 +37,7 @@ export async function GET(request: Request): Promise<Response> {
         controller.enqueue(encoder.encode(formatSseEvent({
           type: "analysis.ready",
           ts: new Date().toISOString(),
-          message: `Analysis ready for ${analysis.metadata.filename}`
+          message: `Analysis ready for ${analysis.metadata.filename} — targeting ${analysis.targetAudience.label}`
         })));
         eventCount++;
 

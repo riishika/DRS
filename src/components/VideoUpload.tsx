@@ -3,16 +3,19 @@
 import React from "react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { TARGET_AUDIENCES } from "@/lib/target-audiences";
 import type { UploadedVideoPreview } from "@/components/VideoPreviewPanel";
+import type { TargetAudienceId } from "@/types";
 
 type VideoUploadProps = {
-  onSubmit: (input: { file?: File; demoMode: boolean }) => Promise<void>;
+  onSubmit: (input: { file?: File; demoMode: boolean; targetAudienceId: TargetAudienceId }) => Promise<void>;
   onVideoPreviewChange: (preview: UploadedVideoPreview | null) => void;
   busy: boolean;
 };
 
 export function VideoUpload({ onSubmit, onVideoPreviewChange, busy }: VideoUploadProps): JSX.Element {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [targetAudienceId, setTargetAudienceId] = useState<TargetAudienceId>("general");
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -40,13 +43,35 @@ export function VideoUpload({ onSubmit, onVideoPreviewChange, busy }: VideoUploa
   }
 
   async function handleSubmit() {
-    await onSubmit({ file: selectedFile || undefined, demoMode: false });
+    await onSubmit({ file: selectedFile || undefined, demoMode: false, targetAudienceId });
   }
+
+  const selectedAudience = TARGET_AUDIENCES.find((audience) => audience.id === targetAudienceId) || TARGET_AUDIENCES[0]!;
 
   return (
     <section className="glass-strong rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-medium text-zinc-300">Upload Media</h2>
+      </div>
+
+      <div className="mb-4">
+        <label className="text-[10px] text-zinc-600 uppercase tracking-wider" htmlFor="target-audience">
+          Target Group
+        </label>
+        <select
+          id="target-audience"
+          value={targetAudienceId}
+          onChange={(event) => setTargetAudienceId(event.target.value as TargetAudienceId)}
+          disabled={busy}
+          className="mt-1 w-full rounded-lg border border-white/[0.06] bg-surface-100 px-3 py-2 text-xs text-zinc-200 outline-none transition-colors hover:border-white/15 focus:border-accent-teal/60 disabled:opacity-50"
+        >
+          {TARGET_AUDIENCES.map((audience) => (
+            <option key={audience.id} value={audience.id}>
+              {audience.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">{selectedAudience.description}</p>
       </div>
 
       {/* Drop Zone */}

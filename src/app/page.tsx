@@ -9,6 +9,7 @@ import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { AIPipelineStatus } from "@/components/AIPipelineStatus";
 import { SimulationView } from "@/components/SimulationView";
 import { ResultsPanel } from "@/components/ResultsPanel";
+import { RecommendationCard } from "@/components/RecommendationCard";
 import { RedTeamPanel } from "@/components/RedTeamPanel";
 import { ReasoningPanel } from "@/components/ReasoningPanel";
 import { WhatIfPanel } from "@/components/WhatIfPanel";
@@ -17,7 +18,7 @@ import { ActionFeed } from "@/components/ActionFeed";
 import { LiveNetworkGraph } from "@/components/LiveNetworkGraph";
 import { UploadedVideoPreview, VideoPreviewPanel } from "@/components/VideoPreviewPanel";
 import { useSimulationStore } from "@/store/simulation-store";
-import type { AnalyzeResponse, SSEEvent } from "@/types";
+import type { AnalyzeResponse, SSEEvent, TargetAudienceId } from "@/types";
 
 export default function HomePage(): JSX.Element {
   const {
@@ -58,12 +59,13 @@ export default function HomePage(): JSX.Element {
     }
   }
 
-  async function handleSubmit(input: { file?: File; demoMode: boolean }) {
+  async function handleSubmit(input: { file?: File; demoMode: boolean; targetAudienceId: TargetAudienceId }) {
     try {
       closeStream();
       setUploading();
       const body = new FormData();
       body.set("demoMode", String(input.demoMode));
+      body.set("targetAudienceId", input.targetAudienceId);
       if (input.file) {
         body.set("video", input.file);
       }
@@ -281,7 +283,7 @@ export default function HomePage(): JSX.Element {
               <LiveNetworkGraph actions={actions} personas={personas} metrics={waveMetrics} />
 
               {/* Right: Action Feed */}
-              <ActionFeed actions={actions} personas={personas} />
+              <ActionFeed actions={actions} personas={personas} targetAudience={analysis?.targetAudience} />
             </div>
 
             {/* Middle row: Analysis + Reasoning */}
@@ -294,6 +296,7 @@ export default function HomePage(): JSX.Element {
               >
                 <AnalysisPanel analysis={analysis} metadata={metadata} messages={messages} frames={frames} />
                 <div className="space-y-6">
+                  <RecommendationCard analysis={analysis} result={result} />
                   <SimulationView metrics={waveMetrics} />
                   {result && <ResultsPanel result={result} />}
                   {result && analysis && (

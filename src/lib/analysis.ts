@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { readFile } from "fs/promises";
 import { getOpenAiClient } from "@/lib/openai";
 import { processVideoUpload } from "@/lib/video-processor";
-import type { VideoAnalysis, VideoMetadata } from "@/types";
+import { getTargetAudience } from "@/lib/target-audiences";
+import type { TargetAudienceId, TranscriptStatus, VideoAnalysis, VideoMetadata } from "@/types";
 
 const log = (stage: string, ...args: unknown[]) => console.log(`[Analysis] [${stage}]`, ...args);
 const logErr = (stage: string, ...args: unknown[]) => console.error(`[Analysis] [${stage}] ERROR:`, ...args);
@@ -11,7 +12,16 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function parseVisionJson(raw: string): { summary: string; contentCategory: string; hookScore: number; visualSignals: string[] } {
+type VisionResult = {
+  summary: string;
+  contentCategory: string;
+  hookScore: number;
+  visualSignals: string[];
+  visualNarrative: string;
+  textOverlays: string[];
+};
+
+function parseVisionJson(raw: string): VisionResult {
   const jsonText = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
   try {
     const parsed = JSON.parse(jsonText) as {
@@ -19,12 +29,17 @@ function parseVisionJson(raw: string): { summary: string; contentCategory: strin
       contentCategory?: string;
       hookScore?: number;
       visualSignals?: string[];
+      visualNarrative?: string;
+      textOverlays?: string[];
     };
+    const summary = parsed.summary || "Short-form content with clear creator intent.";
     return {
-      summary: parsed.summary || "Short-form content with clear creator intent.",
+      summary,
       contentCategory: parsed.contentCategory || "general",
       hookScore: clampScore(Number(parsed.hookScore || 60)),
-      visualSignals: parsed.visualSignals?.slice(0, 8) || ["Clear framing", "Consistent visual style"]
+      visualSignals: parsed.visualSignals?.slice(0, 8) || ["Clear framing", "Consistent visual style"],
+      visualNarrative: parsed.visualNarrative || summary,
+      textOverlays: parsed.textOverlays?.slice(0, 8) || []
     };
   } catch {
     logErr("vision", "Failed to parse vision JSON, using defaults. Raw:", raw.slice(0, 200));
@@ -32,12 +47,14 @@ function parseVisionJson(raw: string): { summary: string; contentCategory: strin
       summary: "Short-form content with clear creator intent.",
       contentCategory: "general",
       hookScore: 60,
-      visualSignals: ["Clear framing", "Consistent visual style"]
+      visualSignals: ["Clear framing", "Consistent visual style"],
+      visualNarrative: "The video has a readable visual setup and can be evaluated from its frames even without spoken dialogue.",
+      textOverlays: []
     };
   }
 }
 
-async function runVision(framePaths: string[]): Promise<{ summary: string; contentCategory: string; hookScore: number; visualSignals: string[] }> {
+async function runVision(framePaths: string[]): Promise<VisionResult> {
   const client = getOpenAiClient();
   if (!client || framePaths.length === 0) {
     log("vision", `Skipping vision API — client: ${!!client}, frames: ${framePaths.length}. Using fallback.`);
@@ -45,7 +62,9 @@ async function runVision(framePaths: string[]): Promise<{ summary: string; conte
       summary: "Visual scan suggests social-first editing and a clear message.",
       contentCategory: "creator-education",
       hookScore: 72,
-      visualSignals: ["Strong first frame contrast", "Readable on-screen text", "Stable composition"]
+      visualSignals: ["Strong first frame contrast", "Readable on-screen text", "Stable composition"],
+      visualNarrative: "The storyboard shows a creator-style video with a clear visual hook, readable framing, and a likely educational payoff.",
+      textOverlays: []
     };
   }
 
@@ -80,10 +99,12 @@ Return strict JSON:
   "summary": "2-3 sentences describing what happens in the video, the tone/vibe, and who the target audience is",
   "contentCategory": "one of: Comedy, Meme, Fitness, Tech, Travel, Food, Gaming, Music, Education, Lifestyle, Fashion, Business, Motivation, Art, Pets, Dance, Reaction, Compilation, Prank, Other",
   "hookScore": 0-100 (how scroll-stopping is the first frame and overall energy),
-  "visualSignals": ["array of 4-6 short strings describing what you SEE"]
+  "visualSignals": ["array of 4-6 short strings describing what you SEE"],
+  "visualNarrative": "1-2 sentences explaining the story, joke, transformation, demo, vibe, or payoff visible from the frames alone",
+  "textOverlays": ["visible text/captions/on-screen labels copied from the frames, or [] if none"]
 }
 
-IMPORTANT: Focus on WHAT the content is about and its VIBE/TONE, not just technical video quality. If it's funny, say it's comedy. If it's a compilation, identify the theme. Read any visible text/captions in the frames.`
+IMPORTANT: Focus on WHAT the content is about and its VIBE/TONE, not just technical video quality. If it's funny, say it's comedy. If it's a compilation, identify the theme. Read any visible text/captions in the frames. The visualNarrative must be useful even when the video has no spoken dialogue.`
       },
       {
         role: "user",
@@ -107,16 +128,18 @@ IMPORTANT: Focus on WHAT the content is about and its VIBE/TONE, not just techni
   return parseVisionJson(rawContent);
 }
 
-async function runTranscription(audioPath?: string): Promise<string> {
+type TranscriptionResult = { text: string; status: TranscriptStatus };
+
+async function runTranscription(audioPath?: string): Promise<TranscriptionResult> {
   if (!audioPath) {
     log("whisper", "No audio path provided, skipping transcription");
-    return "";
+    return { text: "", status: "no_audio" };
   }
 
   const client = getOpenAiClient();
   if (!client) {
     log("whisper", "No OpenAI client available, using demo transcript");
-    return "Demo transcript: quick hook, problem statement, and clear call to action.";
+    return { text: "Demo transcript: quick hook, problem statement, and clear call to action.", status: "spoken" };
   }
 
   const fs = await import("fs");
@@ -136,7 +159,8 @@ async function runTranscription(audioPath?: string): Promise<string> {
       const elapsed = Date.now() - startTime;
       log("whisper", `Transcription complete in ${elapsed}ms (attempt ${attempt}). Length: ${result.text.length} chars`);
       log("whisper", `Transcript preview: "${result.text.slice(0, 150)}${result.text.length > 150 ? "..." : ""}"`);
-      return result.text || "";
+      const text = result.text?.trim() || "";
+      return { text, status: text ? "spoken" : "no_speech" };
     } catch (e) {
       const elapsed = Date.now() - startTime;
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -152,12 +176,20 @@ async function runTranscription(audioPath?: string): Promise<string> {
   }
 
   log("whisper", "All transcription attempts failed, returning empty transcript");
-  return "";
+  return { text: "", status: "unavailable" };
 }
 
-function buildAudioSignals(transcript: string, durationSeconds = 15): string[] {
+function buildAudioSignals(transcript: string, status: TranscriptStatus, hasAudio: boolean, durationSeconds = 15): string[] {
   if (!transcript.trim()) {
-    return ["No audio track detected", "Vision-only analysis", "No speech transcript available"];
+    if (status === "no_speech") {
+      return ["Audio present, no speech detected", "Vision-first evaluation", "Nonverbal hook"];
+    }
+    if (status === "unavailable") {
+      return ["Transcript unavailable", "Vision-first evaluation", "Speech not used for simulation"];
+    }
+    return hasAudio
+      ? ["Audio present", "Vision-first evaluation", "No speech transcript available"]
+      : ["No audio track detected", "Vision-only analysis", "No speech transcript available"];
   }
 
   const words = transcript.split(/\s+/).filter(Boolean).length;
@@ -169,20 +201,26 @@ function buildAudioSignals(transcript: string, durationSeconds = 15): string[] {
   ];
 }
 
-function buildRecommendations(hookScore: number, transcript: string): string[] {
+function buildRecommendations(hookScore: number, transcript: string, status: TranscriptStatus, visualNarrative = ""): string[] {
   const recs: string[] = [];
   if (hookScore < 70) {
     recs.push("Strengthen the first 2 seconds with a bolder visual contrast or explicit promise.");
   }
-  if (!transcript.toLowerCase().includes("comment") && !transcript.toLowerCase().includes("share")) {
+  if (!transcript.trim()) {
+    recs.push("Add a readable on-screen CTA so silent viewers still know whether to comment, save, or share.");
+  } else if (!transcript.toLowerCase().includes("comment") && !transcript.toLowerCase().includes("share")) {
     recs.push("Add a direct CTA for comments or shares in the final third of the video.");
+  }
+  if (!visualNarrative.trim()) {
+    recs.push("Make the visual payoff clearer with an opening title card or stronger before-and-after sequence.");
   }
   recs.push("Test two alternate openings with faster motion cuts for wave-1 retention gains.");
   return recs.slice(0, 3);
 }
 
-export function createDemoAnalysis(): VideoAnalysis {
+export function createDemoAnalysis(targetAudienceId?: TargetAudienceId): VideoAnalysis {
   log("demo", "Creating demo analysis (no API calls)");
+  const targetAudience = getTargetAudience(targetAudienceId);
   const metadata: VideoMetadata = {
     filename: "demo-video.mp4",
     mimeType: "video/mp4",
@@ -202,29 +240,36 @@ export function createDemoAnalysis(): VideoAnalysis {
     hookScore: 78,
     scrollStoppingScore: 80,
     visualSignals: ["Immediate title card", "Face-to-camera credibility", "Consistent branding palette"],
-    audioSignals: buildAudioSignals(transcript, metadata.durationSeconds),
+    visualNarrative: "A creator speaks directly to camera with a title-card style hook and an educational growth payoff.",
+    textOverlays: ["Build in public"],
+    audioSignals: buildAudioSignals(transcript, "spoken", metadata.hasAudio, metadata.durationSeconds),
     transcript,
-    recommendations: buildRecommendations(78, transcript),
+    transcriptStatus: "spoken",
+    targetAudience,
+    recommendations: buildRecommendations(78, transcript, "spoken"),
     metadata,
     createdAt: new Date().toISOString(),
     source: "demo"
   };
 }
 
-export async function analyzeUploadedVideo(file: File): Promise<VideoAnalysis> {
+export async function analyzeUploadedVideo(file: File, targetAudienceId?: TargetAudienceId): Promise<VideoAnalysis> {
   log("live", `=== Starting LIVE analysis for: ${file.name} ===`);
   const totalStart = Date.now();
+  const targetAudience = getTargetAudience(targetAudienceId);
 
   const processed = await processVideoUpload(file);
   log("live", `Video processed. Running vision + transcription in parallel...`);
 
-  const [vision, transcript] = await Promise.all([runVision(processed.framePaths), runTranscription(processed.audioPath)]);
+  const [vision, transcription] = await Promise.all([runVision(processed.framePaths), runTranscription(processed.audioPath)]);
+  const transcript = transcription.text;
 
   log("live", `Vision result: category="${vision.contentCategory}", hookScore=${vision.hookScore}`);
-  log("live", `Transcript: ${transcript ? `${transcript.length} chars` : "empty"}`);
+  log("live", `Transcript: ${transcript ? `${transcript.length} chars` : "empty"} (${transcription.status})`);
 
-  const audioSignals = buildAudioSignals(transcript, processed.metadata.durationSeconds);
-  const scrollStoppingScore = clampScore((vision.hookScore * 0.55) + (audioSignals[0].includes("High") ? 25 : 18));
+  const audioSignals = buildAudioSignals(transcript, transcription.status, processed.metadata.hasAudio, processed.metadata.durationSeconds);
+  const visualFallbackBoost = transcript ? 0 : Math.min(12, vision.visualSignals.length + vision.textOverlays.length * 2);
+  const scrollStoppingScore = clampScore((vision.hookScore * 0.55) + (audioSignals[0].includes("High") ? 25 : 18) + visualFallbackBoost);
 
   const totalElapsed = Date.now() - totalStart;
   log("live", `=== Analysis complete in ${totalElapsed}ms ===`);
@@ -236,9 +281,13 @@ export async function analyzeUploadedVideo(file: File): Promise<VideoAnalysis> {
     hookScore: vision.hookScore,
     scrollStoppingScore,
     visualSignals: vision.visualSignals,
+    visualNarrative: vision.visualNarrative,
+    textOverlays: vision.textOverlays,
     audioSignals,
     transcript,
-    recommendations: buildRecommendations(vision.hookScore, transcript),
+    transcriptStatus: transcription.status,
+    targetAudience,
+    recommendations: buildRecommendations(vision.hookScore, transcript, transcription.status, vision.visualNarrative),
     metadata: processed.metadata,
     createdAt: new Date().toISOString(),
     source: getOpenAiClient() ? "live" : "fallback",
@@ -246,9 +295,10 @@ export async function analyzeUploadedVideo(file: File): Promise<VideoAnalysis> {
   };
 }
 
-export async function analyzeUploadedImage(file: File): Promise<VideoAnalysis> {
+export async function analyzeUploadedImage(file: File, targetAudienceId?: TargetAudienceId): Promise<VideoAnalysis> {
   log("image", `=== Starting IMAGE analysis for: ${file.name} ===`);
   const totalStart = Date.now();
+  const targetAudience = getTargetAudience(targetAudienceId);
 
   const client = getOpenAiClient();
   if (!client) throw new Error("OpenAI API key not configured.");
@@ -271,6 +321,7 @@ export async function analyzeUploadedImage(file: File): Promise<VideoAnalysis> {
 - contentCategory: one word category (e.g., Comedy, Meme, Motivational, Educational, Lifestyle, Art, Fashion, Food, Tech)
 - hookScore: 0-100 (how scroll-stopping is this image)
 - visualSignals: array of 4-6 short strings describing visual elements
+- visualNarrative: 1-2 sentences describing the visible story, joke, offer, or payoff
 - extractedText: any text/captions visible in the image (empty string if none)`
       },
       {
@@ -289,7 +340,7 @@ export async function analyzeUploadedImage(file: File): Promise<VideoAnalysis> {
   log("image", `Raw response (first 300 chars): ${rawContent.slice(0, 300)}`);
 
   const jsonText = rawContent.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-  let parsed: { summary?: string; contentCategory?: string; hookScore?: number; visualSignals?: string[]; extractedText?: string } = {};
+  let parsed: { summary?: string; contentCategory?: string; hookScore?: number; visualSignals?: string[]; extractedText?: string; visualNarrative?: string } = {};
   try {
     parsed = JSON.parse(jsonText);
   } catch {
@@ -301,8 +352,10 @@ export async function analyzeUploadedImage(file: File): Promise<VideoAnalysis> {
   const contentCategory = parsed.contentCategory || "general";
   const hookScore = clampScore(Number(parsed.hookScore || 60));
   const visualSignals = parsed.visualSignals?.slice(0, 8) || ["Clear composition"];
+  const visualNarrative = parsed.visualNarrative || summary;
 
   const transcript = extractedText;
+  const transcriptStatus: TranscriptStatus = extractedText ? "visual_text" : "no_audio";
   const audioSignals = extractedText
     ? ["Text overlay detected", `${extractedText.split(/\s+/).length} words in image`, "Static content — no audio"]
     : ["No text detected", "Visual-only content", "Static image — no audio"];
@@ -330,9 +383,13 @@ export async function analyzeUploadedImage(file: File): Promise<VideoAnalysis> {
     hookScore,
     scrollStoppingScore,
     visualSignals,
+    visualNarrative,
+    textOverlays: extractedText ? [extractedText] : [],
     audioSignals,
     transcript,
-    recommendations: buildRecommendations(hookScore, transcript),
+    transcriptStatus,
+    targetAudience,
+    recommendations: buildRecommendations(hookScore, transcript, transcriptStatus, visualNarrative),
     metadata,
     createdAt: new Date().toISOString(),
     source: "live",

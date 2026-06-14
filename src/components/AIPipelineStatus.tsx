@@ -2,6 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { hasUsableTranscript, normalizeVideoAnalysis } from "@/lib/content-context";
 import type { VideoAnalysis, VideoMetadata } from "@/types";
 
 type AIPipelineStatusProps = {
@@ -25,6 +26,19 @@ export function AIPipelineStatus({ phase, analysis, metadata, frames, actionCoun
   const isDone = phase === "complete";
 
   const isImage = metadata?.durationSeconds === 0;
+  const safeAnalysis = analysis ? normalizeVideoAnalysis(analysis) : null;
+  const transcriptDone = safeAnalysis ? hasUsableTranscript(safeAnalysis) : false;
+  const transcriptDetail = safeAnalysis
+    ? transcriptDone
+      ? `${safeAnalysis.transcript.split(/\s+/).length} words`
+      : safeAnalysis.transcriptStatus === "no_speech"
+        ? "No speech; visual fallback"
+        : safeAnalysis.transcriptStatus === "no_audio"
+          ? "No audio; visual fallback"
+          : safeAnalysis.transcriptStatus === "unavailable"
+            ? "Unavailable; visual fallback"
+            : undefined
+    : undefined;
 
   steps.push({
     label: isImage ? "Image Processing" : "Video Processing",
@@ -33,13 +47,13 @@ export function AIPipelineStatus({ phase, analysis, metadata, frames, actionCoun
   });
   steps.push({
     label: "GPT-4o Vision",
-    status: analysis ? "done" : (metadata && isAnalyzing) ? "active" : "pending",
-    detail: analysis ? `${analysis.contentCategory} · ${analysis.hookScore}/100` : undefined
+    status: safeAnalysis ? "done" : (metadata && isAnalyzing) ? "active" : "pending",
+    detail: safeAnalysis ? `${safeAnalysis.contentCategory} · ${safeAnalysis.hookScore}/100` : undefined
   });
   steps.push({
     label: isImage ? "Text Extraction (OCR)" : "Whisper Audio",
-    status: analysis ? (analysis.transcript && analysis.transcript.length > 5 ? "done" : "skipped") : (metadata && isAnalyzing) ? "active" : "pending",
-    detail: analysis?.transcript && analysis.transcript.length > 5 ? `${analysis.transcript.split(/\s+/).length} words` : undefined
+    status: safeAnalysis ? (transcriptDone ? "done" : "skipped") : (metadata && isAnalyzing) ? "active" : "pending",
+    detail: transcriptDetail
   });
   steps.push({
     label: "260 Persona Agents",

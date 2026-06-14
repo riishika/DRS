@@ -5,9 +5,9 @@ import HomePage from "@/app/page";
 describe("HomePage", () => {
   it("renders the simulator console, upload action, and network graph", () => {
     render(<HomePage />);
-    expect(screen.getByText("Virality Simulator Console")).toBeInTheDocument();
-    expect(screen.getByText("Uploaded Video")).toBeInTheDocument();
-    expect(screen.getByText("Persona Propagation Map")).toBeInTheDocument();
+    expect(screen.getByText("Virality Simulator")).toBeInTheDocument();
+    expect(screen.getByText("Pre-Flight Content Evaluator")).toBeInTheDocument();
+    expect(screen.getByText("Upload Media")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start Prediction" })).toBeInTheDocument();
   });
 });

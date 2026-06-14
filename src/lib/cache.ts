@@ -1,4 +1,5 @@
 import type { SimulationResult, VideoAnalysis } from "@/types";
+import { normalizeVideoAnalysis } from "@/lib/content-context";
 
 const analyses = new Map<string, VideoAnalysis>();
 const simulationResults = new Map<string, SimulationResult>();
@@ -24,11 +25,12 @@ function getResultsMap(): Map<string, SimulationResult> {
 }
 
 export function setAnalysis(analysis: VideoAnalysis): void {
-  getAnalysesMap().set(analysis.id, analysis);
+  getAnalysesMap().set(analysis.id, normalizeVideoAnalysis(analysis));
 }
 
 export function getAnalysis(id: string): VideoAnalysis | undefined {
-  return getAnalysesMap().get(id);
+  const analysis = getAnalysesMap().get(id);
+  return analysis ? normalizeVideoAnalysis(analysis) : undefined;
 }
 
 export function setSimulationResult(result: SimulationResult): void {

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { hasUsableTranscript, isSpeechlessVideo, normalizeVideoAnalysis } from "@/lib/content-context";
 import type { VideoAnalysis, VideoMetadata } from "@/types";
 
 type AnalysisPanelProps = {
@@ -13,15 +14,17 @@ type AnalysisPanelProps = {
 
 export function AnalysisPanel({ analysis, metadata, messages, frames }: AnalysisPanelProps): JSX.Element {
   const [expandedFrame, setExpandedFrame] = useState<number | null>(null);
-  const transcript = analysis?.transcript.trim();
-  const hasTranscript = Boolean(transcript) && !transcript!.startsWith("Transcript unavailable") && !transcript!.startsWith("Demo transcript:");
+  const safeAnalysis = analysis ? normalizeVideoAnalysis(analysis) : null;
+  const transcript = safeAnalysis?.transcript.trim();
+  const hasTranscript = safeAnalysis ? hasUsableTranscript(safeAnalysis) : false;
+  const isVisualFallback = safeAnalysis ? isSpeechlessVideo(safeAnalysis) : false;
 
   return (
     <section className="glass-strong rounded-2xl p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-zinc-300">Content Analysis</h3>
-        {analysis && (
+        {safeAnalysis && (
           <span className="rounded-full bg-accent-gold/10 px-2 py-0.5 text-[10px] font-medium text-accent-gold">
             Live AI
           </span>
@@ -29,22 +32,22 @@ export function AnalysisPanel({ analysis, metadata, messages, frames }: Analysis
       </div>
 
       {/* Primary: AI Summary + Scores (most important info first) */}
-      {analysis && (
+      {safeAnalysis && (
         <div className="space-y-3">
-          <p className="text-xs text-zinc-300 leading-relaxed">{analysis.summary}</p>
+          <p className="text-xs text-zinc-300 leading-relaxed">{safeAnalysis.summary}</p>
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 flex-1">
               <span className="text-[10px] text-zinc-600">Category</span>
-              <span className="text-[11px] text-white font-medium bg-surface-200/60 px-2 py-0.5 rounded">{analysis.contentCategory}</span>
+              <span className="text-[11px] text-white font-medium bg-surface-200/60 px-2 py-0.5 rounded">{safeAnalysis.contentCategory}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-zinc-600">Hook</span>
               <div className="flex items-center gap-1.5">
                 <div className="w-16 h-1.5 rounded-full bg-surface-300/50 overflow-hidden">
-                  <div className="h-full rounded-full bg-gradient-to-r from-accent-gold/60 to-accent-gold" style={{ width: `${analysis.hookScore}%` }} />
+                  <div className="h-full rounded-full bg-gradient-to-r from-accent-gold/60 to-accent-gold" style={{ width: `${safeAnalysis.hookScore}%` }} />
                 </div>
-                <span className="text-[11px] font-mono text-accent-gold">{analysis.hookScore}</span>
+                <span className="text-[11px] font-mono text-accent-gold">{safeAnalysis.hookScore}</span>
               </div>
             </div>
           </div>
@@ -119,16 +122,18 @@ export function AnalysisPanel({ analysis, metadata, messages, frames }: Analysis
       )}
 
       {/* Transcript */}
-      {analysis && (
+      {safeAnalysis && (
         <div className="space-y-3 border-t border-white/[0.04] pt-3">
-          {/* Audio Transcript */}
+          {/* Transcript / visual fallback */}
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-teal">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
               </svg>
-              <p className="text-[10px] text-zinc-500">Transcript</p>
+              <p className="text-[10px] text-zinc-500">
+                {safeAnalysis.transcriptStatus === "visual_text" ? "Detected Text" : isVisualFallback ? "Visual Narrative" : "Transcript"}
+              </p>
               {hasTranscript && (
                 <span className="text-[9px] text-accent-teal ml-auto">{transcript!.split(/\s+/).length} words</span>
               )}
@@ -137,19 +142,32 @@ export function AnalysisPanel({ analysis, metadata, messages, frames }: Analysis
               <p className="text-[11px] text-zinc-400 leading-relaxed italic bg-surface-50/30 rounded-lg px-3 py-2 max-h-20 overflow-auto">
                 &ldquo;{transcript}&rdquo;
               </p>
+            ) : isVisualFallback && safeAnalysis.visualNarrative ? (
+              <p className="text-[11px] text-zinc-400 leading-relaxed bg-surface-50/30 rounded-lg px-3 py-2 max-h-24 overflow-auto">
+                {safeAnalysis.visualNarrative}
+              </p>
             ) : (
               <p className="text-[10px] text-zinc-600">No spoken transcript detected</p>
+            )}
+            {safeAnalysis.textOverlays.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {safeAnalysis.textOverlays.map((text) => (
+                  <span key={text} className="rounded bg-surface-200/60 px-2 py-0.5 text-[9px] text-zinc-400">
+                    {text}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
 
           {/* Signals as compact pills */}
           <div className="flex flex-wrap gap-1.5">
-            {analysis.visualSignals.map((signal) => (
+            {safeAnalysis.visualSignals.map((signal) => (
               <span key={signal} className="rounded-full bg-accent-teal/8 border border-accent-teal/15 px-2 py-0.5 text-[9px] text-accent-teal/80">
                 {signal}
               </span>
             ))}
-            {analysis.audioSignals.map((signal) => (
+            {safeAnalysis.audioSignals.map((signal) => (
               <span key={signal} className="rounded-full bg-accent-gold/8 border border-accent-gold/15 px-2 py-0.5 text-[9px] text-accent-gold/80">
                 {signal}
               </span>

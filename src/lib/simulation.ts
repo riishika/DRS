@@ -1,6 +1,8 @@
 import type { AgentAction, AgentActionType, Persona, RedTeamFlag, SimulationResult, SSEEvent, VideoAnalysis, WaveMetrics } from "@/types";
 import { getWaveAudience } from "@/lib/personas";
 import { getOpenAiClient } from "@/lib/openai";
+import { buildContentContext, buildSimulationBrief, hasUsableTranscript, isSpeechlessVideo } from "@/lib/content-context";
+import { personaMatchesTargetAudience, targetAudienceMatchesText } from "@/lib/target-audiences";
 
 const log = (stage: string, ...args: unknown[]) => console.log(`[Simulation] [${stage}]`, ...args);
 const logErr = (stage: string, ...args: unknown[]) => console.error(`[Simulation] [${stage}] ERROR:`, ...args);
@@ -25,6 +27,9 @@ function cleanSnippet(value: string): string {
 }
 
 function transcriptHook(analysis: VideoAnalysis): string {
+  if (!hasUsableTranscript(analysis)) {
+    return "";
+  }
   const transcript = cleanSnippet(analysis.transcript);
   if (!transcript || transcript.toLowerCase().includes("transcript unavailable")) {
     return "";
@@ -35,7 +40,7 @@ function transcriptHook(analysis: VideoAnalysis): string {
 }
 
 function matchedInterest(persona: Persona, analysis: VideoAnalysis): string {
-  const analysisText = `${analysis.summary} ${analysis.contentCategory} ${analysis.transcript}`.toLowerCase();
+  const analysisText = buildContentContext(analysis);
   return persona.interests.find((interest) => analysisText.includes(interest.toLowerCase())) || persona.interests[0] || analysis.contentCategory;
 }
 
@@ -43,6 +48,7 @@ export function buildPersonaComment(persona: Persona, analysis: VideoAnalysis, a
   const hook = transcriptHook(analysis);
   const summary = analysis.summary.toLowerCase();
   const category = analysis.contentCategory.replace(/-/g, " ");
+  const isSpeechless = isSpeechlessVideo(analysis);
 
   const videoSubject = extractSubject(analysis);
 
@@ -60,7 +66,7 @@ export function buildPersonaComment(persona: Persona, analysis: VideoAnalysis, a
   const millennialComments = [
     () => `This made my day. ${videoSubject} is perfect.`,
     () => `The ${category} content I actually want on my feed`,
-    () => hook ? `"${hook}" 😂` : `This is too good not to share`,
+    () => hook ? `"${hook}" 😂` : isSpeechless ? `This works even with no dialogue` : `This is too good not to share`,
     () => `Sharing this with my group chat immediately`,
     () => `More of this energy please`,
     () => `This is exactly the kind of content that keeps me scrolling`
@@ -69,7 +75,7 @@ export function buildPersonaComment(persona: Persona, analysis: VideoAnalysis, a
   const deepEngagerComments = [
     () => `The editing choices here really elevate ${category} content`,
     () => `${videoSubject} — this is the kind of thing that gets rewatched`,
-    () => hook ? `"${hook}" — that delivery is perfect` : `The pacing on this is just right`,
+    () => hook ? `"${hook}" — that delivery is perfect` : `The visual pacing on this is just right`,
     () => `This is going to blow up and I'm calling it now`,
     () => `Would love a part 2 of this concept`,
     () => `The way this builds from start to finish is really well done`
@@ -85,11 +91,11 @@ export function buildPersonaComment(persona: Persona, analysis: VideoAnalysis, a
   ];
 
   const creatorComments = [
-    () => `The pacing here is really well done — keeps you watching`,
+    () => `The pacing here really sells the ${category} workflow`,
     () => `This format works so well for ${category}. Smart execution.`,
-    () => `The hook-to-payoff ratio here is 💯`,
-    () => hook ? `Leading with "${hook}" is a smart move` : `The opening seconds really lock you in`,
-    () => `Taking notes on this structure. Clean.`,
+    () => `The hook-to-payoff ratio for ${videoSubject} is 💯`,
+    () => hook ? `Leading with "${hook}" is a smart move` : `The opening frames really lock you in`,
+    () => `Taking notes on this ${category} structure. Clean.`,
     () => `The ${category} niche is underrated and this proves it`
   ];
 
@@ -115,7 +121,7 @@ export function buildPersonaComment(persona: Persona, analysis: VideoAnalysis, a
 }
 
 function extractSubject(analysis: VideoAnalysis): string {
-  const summary = analysis.summary;
+  const summary = analysis.visualNarrative || analysis.summary;
   const firstSentence = summary.split(/[.!]/).find((s) => s.trim().length > 10)?.trim();
   if (firstSentence && firstSentence.length <= 60) {
     return firstSentence.toLowerCase().replace(/^the video (features|shows|is about)\s*/i, "");
@@ -124,7 +130,7 @@ function extractSubject(analysis: VideoAnalysis): string {
 }
 
 function similarityScore(persona: Persona, analysis: VideoAnalysis): number {
-  const text = `${analysis.summary} ${analysis.contentCategory} ${analysis.transcript}`.toLowerCase();
+  const text = buildContentContext(analysis);
   const interestHits = persona.interests.filter((interest) => text.includes(interest.toLowerCase())).length;
   const prefHits = persona.contentPreferences.filter((pref) => {
     const words = pref.toLowerCase().split(/\s+/);
@@ -244,7 +250,7 @@ async function llmAction(persona: Persona, analysis: VideoAnalysis, wave: number
           content: JSON.stringify({
             persona: { name: persona.name, age: persona.age, interests: persona.interests, scrollBehavior: persona.scrollBehavior, engagementStyle: persona.engagementStyle, contentPreferences: persona.contentPreferences },
             wave,
-            videoAnalysis: { summary: analysis.summary, contentCategory: analysis.contentCategory, hookScore: analysis.hookScore, transcript: analysis.transcript.slice(0, 300) }
+            videoAnalysis: buildSimulationBrief(analysis)
           })
         }
       ]
@@ -332,6 +338,83 @@ function strongestDemographic(actions: AgentAction[], personas: Persona[]): stri
     map.set(bucket, (map.get(bucket) || 0) + 1);
   }
   return [...map.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "20s";
+}
+
+function personaIsInSelectedTarget(persona: Persona, analysis: VideoAnalysis): boolean {
+  if (analysis.targetAudience.id === "general") return true;
+  return personaMatchesTargetAudience(analysis.targetAudience, persona);
+}
+
+function getTargetAudienceActions(actions: AgentAction[], personas: Persona[], analysis: VideoAnalysis): AgentAction[] {
+  const personaById = new Map(personas.map((persona) => [persona.id, persona]));
+  return actions.filter((action) => {
+    const persona = personaById.get(action.personaId);
+    return persona ? personaIsInSelectedTarget(persona, analysis) : false;
+  });
+}
+
+function computeTargetAudienceScore(actions: AgentAction[], personas: Persona[], analysis: VideoAnalysis): number {
+  const targetActions = getTargetAudienceActions(actions, personas, analysis);
+  const measuredActions = targetActions.length > 0 || analysis.targetAudience.id !== "general" ? targetActions : actions;
+  const metrics = computeWaveMetrics(0, measuredActions);
+  const engagement = Math.min(1, metrics.engagementRate / 0.22);
+  const share = Math.min(1, metrics.shareRate / 0.08);
+  const watch = Math.min(1, metrics.avgWatchDuration / 85);
+  return Math.max(0, Math.min(100, Math.round((engagement * 45) + (share * 35) + (watch * 20))));
+}
+
+function summarizeSkipReason(actions: AgentAction[]): string | undefined {
+  const skipReason = actions.find((action) => action.action === "skip" && action.reasoning)?.reasoning;
+  if (!skipReason) return undefined;
+  return skipReason.replace(/\s+/g, " ").slice(0, 110);
+}
+
+function buildTargetAudienceRecommendations(
+  analysis: VideoAnalysis,
+  targetMetrics: WaveMetrics,
+  targetAudienceScore: number,
+  targetActions: AgentAction[]
+): string[] {
+  const target = analysis.targetAudience;
+  const angles = target.recommendationAngles;
+  const firstAngle = angles[0] || "audience-specific payoff";
+  const secondAngle = angles[1] || "saveable takeaway";
+  const context = buildContentContext(analysis);
+  const hasTargetLanguage = targetAudienceMatchesText(target, context);
+  const skipRate = targetMetrics.impressions > 0 ? targetMetrics.skips / targetMetrics.impressions : 0;
+  const skipReason = summarizeSkipReason(targetActions);
+  const recs: string[] = [];
+
+  if (targetMetrics.impressions === 0) {
+    recs.push(`Broaden the target sample by adding clearer ${target.label} signals: ${target.interests.slice(0, 3).join(", ")}.`);
+    recs.push(`Rewrite the first frame around ${firstAngle} so the simulator can classify the post for this group.`);
+    return recs;
+  }
+
+  if (targetAudienceScore < 45) {
+    recs.push(`Edit the first 2 seconds for ${target.label}: show the problem, then promise ${firstAngle}.`);
+  } else {
+    recs.push(`Keep the ${target.label} positioning, but make the edit more explicit around ${firstAngle}.`);
+  }
+
+  if (!hasTargetLanguage && target.id !== "general") {
+    recs.push(`Add on-screen words this group instantly recognizes: ${target.interests.slice(0, 3).join(", ")}.`);
+  } else if (targetMetrics.shareRate < 0.03) {
+    recs.push(`Add a share/save moment for ${target.label} by framing the payoff as ${secondAngle}.`);
+  }
+
+  if (!hasUsableTranscript(analysis) && analysis.textOverlays.length === 0) {
+    recs.push(`Add an on-screen caption or label so ${target.label} understands the hook without audio.`);
+  } else if (targetMetrics.avgWatchDuration < 55) {
+    recs.push(`Move the strongest ${target.label} payoff before second 3 to reduce early skips.`);
+  }
+
+  if (skipRate > 0.45 && skipReason) {
+    recs.push(`Address the main target-skip reason in the edit: "${skipReason}".`);
+  }
+
+  recs.push(`Test one variant written only for ${target.label}, using ${target.recommendationAngles.slice(0, 2).join(" + ")}.`);
+  return recs.slice(0, 4);
 }
 
 function generatePeerRecipients(
@@ -432,9 +515,12 @@ Find 2-5 flags. Be specific and actionable. Even safe content has weaknesses (e.
             summary: analysis.summary,
             category: analysis.contentCategory,
             hookScore: analysis.hookScore,
+            visualNarrative: analysis.visualNarrative,
             visualSignals: analysis.visualSignals,
+            textOverlays: analysis.textOverlays,
             audioSignals: analysis.audioSignals,
-            transcript: analysis.transcript.slice(0, 400)
+            transcriptStatus: analysis.transcriptStatus,
+            transcript: hasUsableTranscript(analysis) ? analysis.transcript.slice(0, 400) : undefined
           })
         }
       ]
@@ -465,8 +551,15 @@ function deterministicRedTeam(analysis: VideoAnalysis): RedTeamFlag[] {
   if (analysis.hookScore < 70) {
     flags.push({ severity: "high", category: "engagement_risk", description: "Weak opening hook — most viewers will scroll past within 2 seconds", agent: "Hook Analyzer" });
   }
-  if (!analysis.transcript || analysis.transcript.length < 20) {
-    flags.push({ severity: "medium", category: "accessibility", description: "No spoken audio detected — content relies entirely on visuals, limiting reach", agent: "Accessibility Scanner" });
+  if (!hasUsableTranscript(analysis)) {
+    flags.push({
+      severity: analysis.visualNarrative || analysis.textOverlays.length > 0 ? "low" : "medium",
+      category: "accessibility",
+      description: analysis.visualNarrative || analysis.textOverlays.length > 0
+        ? "No spoken transcript detected, but frame/storyboard signals are strong enough for visual-first evaluation"
+        : "No spoken transcript detected — add captions or visible context for viewers watching silently",
+      agent: "Accessibility Scanner"
+    });
   }
   if (analysis.scrollStoppingScore < 60) {
     flags.push({ severity: "medium", category: "engagement_risk", description: "Low scroll-stopping power — content blends into feed noise", agent: "Retention Analyzer" });
@@ -477,7 +570,7 @@ function deterministicRedTeam(analysis: VideoAnalysis): RedTeamFlag[] {
     flags.push({ severity: "low", category: "audience_alienation", description: `Niche content (${analysis.contentCategory}) limits viral ceiling — broad audiences may not engage`, agent: "Audience Scope Analyzer" });
   }
 
-  if (analysis.transcript && analysis.transcript.length > 50) {
+  if (hasUsableTranscript(analysis) && analysis.transcript.length > 50) {
     const lower = analysis.transcript.toLowerCase();
     if (lower.includes("buy") || lower.includes("subscribe") || lower.includes("link in bio")) {
       flags.push({ severity: "low", category: "fatigue_factor", description: "Promotional language detected — may trigger ad fatigue in organic feeds", agent: "Authenticity Scanner" });
@@ -503,7 +596,7 @@ function computeRiskScore(flags: RedTeamFlag[]): number {
 
 export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator<SSEEvent, SimulationResult> {
   log("engine", `=== Starting simulation for analysis: ${analysis.id} (${analysis.source}) ===`);
-  log("engine", `Content: "${analysis.contentCategory}" | Hook: ${analysis.hookScore} | Transcript: ${analysis.transcript.length} chars`);
+  log("engine", `Content: "${analysis.contentCategory}" | Hook: ${analysis.hookScore} | Transcript: ${analysis.transcript.length} chars (${analysis.transcriptStatus})`);
 
   // Run Red Team in parallel with Wave 1 setup
   const redTeamPromise = runRedTeam(analysis);
@@ -527,7 +620,7 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
     }
 
     const waveStart = Date.now();
-    const audience = getWaveAudience(config.wave, analysis.contentCategory)
+    const audience = getWaveAudience(config.wave, analysis.contentCategory, analysis.targetAudience)
       .slice(0, config.impressions)
       .map((persona, index) => ({
         ...persona,
@@ -536,12 +629,13 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
     allPersonas.push(...audience);
 
     log("engine", `Wave ${config.wave}: ${audience.length} personas (${config.llm} LLM, ${audience.length - config.llm} deterministic)`);
+    const targetPersonaCount = audience.filter((persona) => personaIsInSelectedTarget(persona, analysis)).length;
 
     yield {
       type: "wave.started",
       ts: new Date().toISOString(),
       wave: config.wave,
-      message: `Wave ${config.wave} started with ${config.impressions} personas.`
+      message: `Wave ${config.wave} started: ${targetPersonaCount}/${config.impressions} personas match ${analysis.targetAudience.label}.`
     };
 
     const actions: AgentAction[] = [];
@@ -634,6 +728,10 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
 
   const totalMetrics = computeWaveMetrics(0, allActions);
   const viralityScore = computeViralityScore(waveMetrics.length > 0 ? waveMetrics : [totalMetrics]);
+  const targetAudienceActions = getTargetAudienceActions(allActions, allPersonas, analysis);
+  const targetMetrics = computeWaveMetrics(0, targetAudienceActions);
+  const targetAudienceScore = computeTargetAudienceScore(allActions, allPersonas, analysis);
+  const targetAudienceRecommendations = buildTargetAudienceRecommendations(analysis, targetMetrics, targetAudienceScore, targetAudienceActions);
   const comments = allActions.map((action) => action.comment).filter((value): value is string => Boolean(value));
   const redTeamFlags = await redTeamPromise;
   const riskScore = computeRiskScore(redTeamFlags);
@@ -648,6 +746,8 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
     riskScore,
     riskFlags: redTeamFlags,
     strongestDemographic: strongestDemographic(allActions, allPersonas),
+    targetAudience: analysis.targetAudience,
+    targetAudienceScore,
     totalMetrics,
     waves: waveMetrics,
     topRecommendations: [
@@ -659,6 +759,7 @@ export async function* simulateVirality(analysis: VideoAnalysis): AsyncGenerator
         : "Double down on shareable phrasing in captions and overlays.",
       "A/B test two variants targeted at your strongest demographic cluster."
     ],
+    targetAudienceRecommendations,
     comments: comments.slice(0, 25)
   };
 

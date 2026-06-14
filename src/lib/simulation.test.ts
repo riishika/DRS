@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPersonaComment, computeWaveMetrics } from "@/lib/simulation";
+import { getTargetAudience } from "@/lib/target-audiences";
 import type { AgentAction, Persona, VideoAnalysis } from "@/types";
 
 describe("simulation scoring", () => {
@@ -42,8 +43,12 @@ describe("simulation scoring", () => {
       hookScore: 82,
       scrollStoppingScore: 84,
       visualSignals: ["Bold title card"],
+      visualNarrative: "AI launch demo with a bold title card and workflow payoff.",
+      textOverlays: ["AI workflow"],
       audioSignals: ["Clear spoken narrative"],
       transcript: "This AI workflow saves creators an hour before posting.",
+      transcriptStatus: "spoken",
+      targetAudience: getTargetAudience("developers"),
       recommendations: [],
       metadata: {
         filename: "demo.mp4",

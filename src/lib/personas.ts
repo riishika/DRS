@@ -1,4 +1,5 @@
-import type { Persona } from "@/types";
+import { personaMatchesTargetAudience } from "@/lib/target-audiences";
+import type { Persona, TargetAudience } from "@/types";
 
 const ARCHETYPES: Omit<Persona, "id">[] = [
   { name: "Gen Z Trend Surfer", age: 19, interests: ["fashion", "memes", "trends"], scrollBehavior: "fast", engagementStyle: "sharer", attentionSpan: 6, contentPreferences: ["high energy", "short hooks", "trending audio"], followerCount: 620 },
@@ -81,11 +82,33 @@ function hasAffinityWithCategory(persona: Persona, category: string): boolean {
   return terms.some((term) => personaText.includes(term));
 }
 
-function pickWeighted(pool: Persona[], count: number, emphasize?: string): Persona[] {
+function hasAffinityWithTargetAudience(persona: Persona, targetAudience?: TargetAudience): boolean {
+  if (!targetAudience || targetAudience.id === "general") return false;
+  return personaMatchesTargetAudience(targetAudience, persona);
+}
+
+function pickWeighted(pool: Persona[], count: number, emphasize?: string, targetAudience?: TargetAudience): Persona[] {
   const selected: Persona[] = [];
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
 
-  if (emphasize) {
+  if (targetAudience && targetAudience.id !== "general") {
+    const targetMatched = shuffled.filter((p) => hasAffinityWithTargetAudience(p, targetAudience));
+    const categoryMatched = shuffled.filter((p) => !hasAffinityWithTargetAudience(p, targetAudience) && emphasize && hasAffinityWithCategory(p, emphasize));
+    const unmatched = shuffled.filter((p) => !targetMatched.includes(p) && !categoryMatched.includes(p));
+
+    for (const p of targetMatched) {
+      if (selected.length >= count) break;
+      selected.push(p);
+    }
+    for (const p of categoryMatched) {
+      if (selected.length >= count) break;
+      selected.push(p);
+    }
+    for (const p of unmatched) {
+      if (selected.length >= count) break;
+      selected.push(p);
+    }
+  } else if (emphasize) {
     const matched = shuffled.filter((p) => hasAffinityWithCategory(p, emphasize));
     const unmatched = shuffled.filter((p) => !hasAffinityWithCategory(p, emphasize));
 
@@ -110,13 +133,13 @@ function pickWeighted(pool: Persona[], count: number, emphasize?: string): Perso
   return selected;
 }
 
-export function getWaveAudience(wave: 1 | 2 | 3, category: string): Persona[] {
+export function getWaveAudience(wave: 1 | 2 | 3, category: string, targetAudience?: TargetAudience): Persona[] {
   const pool = getPersonaPool();
   if (wave === 1) {
-    return pickWeighted(pool, 10, category);
+    return pickWeighted(pool, 10, category, targetAudience);
   }
   if (wave === 2) {
-    return pickWeighted(pool, 50, category);
+    return pickWeighted(pool, 50, category, targetAudience);
   }
-  return pickWeighted(pool, 200, undefined);
+  return pickWeighted(pool, 200, undefined, targetAudience);
 }

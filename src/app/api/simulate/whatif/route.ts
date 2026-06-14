@@ -2,6 +2,7 @@ import { getAnalysis } from "@/lib/cache";
 import { computeWaveMetrics } from "@/lib/simulation";
 import { getWaveAudience } from "@/lib/personas";
 import { getOpenAiClient } from "@/lib/openai";
+import { buildSimulationBrief } from "@/lib/content-context";
 import type { AgentAction, AgentActionType, VideoAnalysis } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
     scrollStoppingScore: Math.round(((body.hookScore ?? original.hookScore) * 0.55) + 18)
   };
 
-  const audience = getWaveAudience(1, tweaked.contentCategory)
+  const audience = getWaveAudience(1, tweaked.contentCategory, tweaked.targetAudience)
     .slice(0, 10)
     .map((p, i) => ({ ...p, id: `whatif-${p.id}-${i}` }));
 
@@ -48,7 +49,7 @@ export async function POST(request: Request): Promise<Response> {
               role: "user",
               content: JSON.stringify({
                 persona: { name: persona.name, interests: persona.interests, engagementStyle: persona.engagementStyle },
-                videoAnalysis: { summary: tweaked.summary, contentCategory: tweaked.contentCategory, hookScore: tweaked.hookScore }
+                videoAnalysis: buildSimulationBrief(tweaked)
               })
             }
           ]

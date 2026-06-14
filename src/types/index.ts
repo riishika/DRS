@@ -25,6 +25,30 @@ export type VideoMetadata = {
   visualCoverage: "full-video-storyboard" | "fallback";
 };
 
+export type TranscriptStatus = "spoken" | "visual_text" | "no_speech" | "no_audio" | "unavailable";
+
+export type TargetAudienceId =
+  | "general"
+  | "gen_z"
+  | "creators"
+  | "founders"
+  | "developers"
+  | "fitness"
+  | "food"
+  | "travel"
+  | "gamers"
+  | "parents"
+  | "designers";
+
+export type TargetAudience = {
+  id: TargetAudienceId;
+  label: string;
+  description: string;
+  interests: string[];
+  contentPreferences: string[];
+  recommendationAngles: string[];
+};
+
 export type VideoAnalysis = {
   id: string;
   summary: string;
@@ -32,8 +56,12 @@ export type VideoAnalysis = {
   hookScore: number;
   scrollStoppingScore: number;
   visualSignals: string[];
+  visualNarrative: string;
+  textOverlays: string[];
   audioSignals: string[];
   transcript: string;
+  transcriptStatus: TranscriptStatus;
+  targetAudience: TargetAudience;
   recommendations: string[];
   metadata: VideoMetadata;
   createdAt: string;
@@ -81,9 +109,12 @@ export type SimulationResult = {
   riskScore: number;
   riskFlags: RedTeamFlag[];
   strongestDemographic: string;
+  targetAudience: TargetAudience;
+  targetAudienceScore: number;
   totalMetrics: WaveMetrics;
   waves: WaveMetrics[];
   topRecommendations: string[];
+  targetAudienceRecommendations: string[];
   comments: string[];
 };
 

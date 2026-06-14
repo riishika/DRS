@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useSimulationStore } from "@/store/simulation-store";
+import { buildContentContext } from "@/lib/content-context";
 import type { AgentActionType } from "@/types";
 
 const ACTION_COLORS: Record<AgentActionType, string> = {
@@ -86,7 +87,7 @@ export default function StatsPage(): JSX.Element {
 
   const interestMatchRate = useMemo(() => {
     if (!analysis) return [];
-    const analysisText = `${analysis.summary} ${analysis.contentCategory} ${analysis.transcript}`.toLowerCase();
+    const analysisText = buildContentContext(analysis);
     const personaList = Object.values(personas);
     let matched = 0;
     let unmatched = 0;
