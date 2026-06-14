@@ -59,7 +59,7 @@ async function runVision(framePaths: string[]): Promise<{ summary: string; conte
         type: "image_url" as const,
         image_url: {
           url: `data:image/jpeg;base64,${bytes.toString("base64")}`,
-          detail: "low" as const
+          detail: "auto" as const
         }
       };
     })
@@ -73,7 +73,17 @@ async function runVision(framePaths: string[]): Promise<{ summary: string; conte
       {
         role: "system",
         content:
-          "You analyze a storyboard sampled evenly across an entire short video. Return strict JSON with keys: summary, contentCategory, hookScore(0-100), visualSignals(array of short strings)."
+          `You analyze frames sampled from a short-form social media video (TikTok/Reels/Shorts style). Your job is to identify what the video IS ABOUT and who would enjoy it.
+
+Return strict JSON:
+{
+  "summary": "2-3 sentences describing what happens in the video, the tone/vibe, and who the target audience is",
+  "contentCategory": "one of: Comedy, Meme, Fitness, Tech, Travel, Food, Gaming, Music, Education, Lifestyle, Fashion, Business, Motivation, Art, Pets, Dance, Reaction, Compilation, Prank, Other",
+  "hookScore": 0-100 (how scroll-stopping is the first frame and overall energy),
+  "visualSignals": ["array of 4-6 short strings describing what you SEE"]
+}
+
+IMPORTANT: Focus on WHAT the content is about and its VIBE/TONE, not just technical video quality. If it's funny, say it's comedy. If it's a compilation, identify the theme. Read any visible text/captions in the frames.`
       },
       {
         role: "user",
@@ -81,7 +91,7 @@ async function runVision(framePaths: string[]): Promise<{ summary: string; conte
           {
             type: "text",
             text:
-              "These frames are ordered from start to finish across the whole clip. Analyze the full visual arc, not just the opening. Mention hook, mid-video retention, ending/payoff, visual quality, captions/text, and share potential."
+              "These frames are sampled across the full video. What is this video about? What's the genre/category? Who would watch this? Is it funny, educational, inspirational, or something else? Read any text overlays visible in the frames."
           },
           ...imageParts
         ]
@@ -233,5 +243,99 @@ export async function analyzeUploadedVideo(file: File): Promise<VideoAnalysis> {
     createdAt: new Date().toISOString(),
     source: getOpenAiClient() ? "live" : "fallback",
     _framePaths: processed.framePaths
+  };
+}
+
+export async function analyzeUploadedImage(file: File): Promise<VideoAnalysis> {
+  log("image", `=== Starting IMAGE analysis for: ${file.name} ===`);
+  const totalStart = Date.now();
+
+  const client = getOpenAiClient();
+  if (!client) throw new Error("OpenAI API key not configured.");
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const base64 = buffer.toString("base64");
+  const mimeType = file.type || "image/jpeg";
+  const dataUrl = `data:${mimeType};base64,${base64}`;
+
+  log("image", `Image encoded: ${(buffer.length / 1024).toFixed(1)} KB, type: ${mimeType}`);
+
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o",
+    temperature: 0.3,
+    messages: [
+      {
+        role: "system",
+        content: `You analyze a social media image/post. Return strict JSON with keys:
+- summary: describe what the image shows and its social media potential (2-3 sentences)
+- contentCategory: one word category (e.g., Comedy, Meme, Motivational, Educational, Lifestyle, Art, Fashion, Food, Tech)
+- hookScore: 0-100 (how scroll-stopping is this image)
+- visualSignals: array of 4-6 short strings describing visual elements
+- extractedText: any text/captions visible in the image (empty string if none)`
+      },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Analyze this image as if it were posted on Instagram. Focus on engagement potential, visual quality, text overlays, and shareability." },
+          { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+        ]
+      }
+    ]
+  });
+
+  const elapsed = Date.now() - totalStart;
+  const rawContent = completion.choices[0]?.message?.content || "{}";
+  log("image", `GPT-4o responded in ${elapsed}ms. Tokens: ${completion.usage?.total_tokens || "unknown"}`);
+  log("image", `Raw response (first 300 chars): ${rawContent.slice(0, 300)}`);
+
+  const jsonText = rawContent.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+  let parsed: { summary?: string; contentCategory?: string; hookScore?: number; visualSignals?: string[]; extractedText?: string } = {};
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    logErr("image", "Failed to parse vision JSON:", jsonText.slice(0, 200));
+  }
+
+  const extractedText = parsed.extractedText || "";
+  const summary = parsed.summary || "Image content with social media potential.";
+  const contentCategory = parsed.contentCategory || "general";
+  const hookScore = clampScore(Number(parsed.hookScore || 60));
+  const visualSignals = parsed.visualSignals?.slice(0, 8) || ["Clear composition"];
+
+  const transcript = extractedText;
+  const audioSignals = extractedText
+    ? ["Text overlay detected", `${extractedText.split(/\s+/).length} words in image`, "Static content — no audio"]
+    : ["No text detected", "Visual-only content", "Static image — no audio"];
+
+  const scrollStoppingScore = clampScore((hookScore * 0.6) + 20);
+
+  const metadata: VideoMetadata = {
+    filename: file.name,
+    mimeType: file.type,
+    sizeBytes: file.size,
+    durationSeconds: 0,
+    width: 1080,
+    height: 1080,
+    hasAudio: false,
+    sampledFrameCount: 1,
+    visualCoverage: "full-video-storyboard"
+  };
+
+  log("image", `=== Image analysis complete in ${elapsed}ms — category: ${contentCategory}, hook: ${hookScore}, text: ${extractedText.length} chars ===`);
+
+  return {
+    id: randomUUID(),
+    summary,
+    contentCategory,
+    hookScore,
+    scrollStoppingScore,
+    visualSignals,
+    audioSignals,
+    transcript,
+    recommendations: buildRecommendations(hookScore, transcript),
+    metadata,
+    createdAt: new Date().toISOString(),
+    source: "live",
+    _framePaths: []
   };
 }

@@ -24,10 +24,12 @@ export function AIPipelineStatus({ phase, analysis, metadata, frames, actionCoun
   const isSimulating = phase === "simulating";
   const isDone = phase === "complete";
 
+  const isImage = metadata?.durationSeconds === 0;
+
   steps.push({
-    label: "Video Processing",
+    label: isImage ? "Image Processing" : "Video Processing",
     status: metadata ? "done" : isAnalyzing ? "active" : "pending",
-    detail: metadata ? `${metadata.sampledFrameCount} frames · ${metadata.durationSeconds.toFixed(0)}s` : undefined
+    detail: metadata ? (isImage ? `1 image · ${(metadata.sizeBytes / 1024).toFixed(0)}KB` : `${metadata.sampledFrameCount} frames · ${metadata.durationSeconds.toFixed(0)}s`) : undefined
   });
   steps.push({
     label: "GPT-4o Vision",
@@ -35,7 +37,7 @@ export function AIPipelineStatus({ phase, analysis, metadata, frames, actionCoun
     detail: analysis ? `${analysis.contentCategory} · ${analysis.hookScore}/100` : undefined
   });
   steps.push({
-    label: "Whisper Audio",
+    label: isImage ? "Text Extraction (OCR)" : "Whisper Audio",
     status: analysis ? (analysis.transcript && analysis.transcript.length > 5 ? "done" : "skipped") : (metadata && isAnalyzing) ? "active" : "pending",
     detail: analysis?.transcript && analysis.transcript.length > 5 ? `${analysis.transcript.split(/\s+/).length} words` : undefined
   });

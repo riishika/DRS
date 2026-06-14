@@ -36,7 +36,7 @@ export function VideoUpload({ onSubmit, onVideoPreviewChange, busy }: VideoUploa
     setIsDragOver(false);
     if (busy) return;
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("video/")) setSelectedFile(file);
+    if (file && (file.type.startsWith("video/") || file.type.startsWith("image/"))) setSelectedFile(file);
   }
 
   async function handleSubmit() {
@@ -46,7 +46,7 @@ export function VideoUpload({ onSubmit, onVideoPreviewChange, busy }: VideoUploa
   return (
     <section className="glass-strong rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-zinc-300">Upload Video</h2>
+        <h2 className="text-sm font-medium text-zinc-300">Upload Media</h2>
       </div>
 
       {/* Drop Zone */}
@@ -60,14 +60,14 @@ export function VideoUpload({ onSubmit, onVideoPreviewChange, busy }: VideoUploa
         }`}
       >
         <p className="text-xs text-zinc-400">
-          {selectedFile ? selectedFile.name : "Drop video or click to browse"}
+          {selectedFile ? selectedFile.name : "Drop video or image to analyze"}
         </p>
-        <p className="text-[10px] text-zinc-600 mt-1">MP4, MOV, WebM · max 60s</p>
+        <p className="text-[10px] text-zinc-600 mt-1">MP4, MOV, WebM, JPEG, PNG, WebP</p>
         <input
           ref={inputRef}
           className="hidden"
           type="file"
-          accept="video/mp4,video/quicktime,video/webm"
+          accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp,image/gif"
           onChange={onFileChange}
           disabled={busy}
         />
