@@ -1,0 +1,94 @@
+---
+description: Elite architecture and thinking patterns for hackathon projects
+alwaysApply: true
+---
+
+# Architecture & Thinking Patterns
+
+## The Genius Heuristic
+- Before building anything, ask: "What's the simplest system that could possibly work AND impress?"
+- Think in layers: Data → Logic → Interface. Keep them cleanly separated.
+- Every technical decision should serve the DEMO. If judges can't see it, it doesn't exist.
+
+## Architecture Principles
+
+### 1. Event-Driven Over Request-Response
+- Use event streams (SSE/WebSockets) for anything real-time.
+- Decouple producers from consumers — makes the system feel alive.
+- Queue-based async processing for heavy AI tasks.
+
+### 2. Composable Agents Over Monoliths
+- Each agent = one clear responsibility + one clear interface.
+- Agents communicate via structured messages (JSON schemas).
+- Orchestrator pattern: one coordinator routes tasks to specialist agents.
+- Make agents stateless where possible — state lives in a shared store.
+
+### 3. Schema-First Design
+- Define your data shapes BEFORE writing logic.
+- Use Zod (TS) or Pydantic (Python) for runtime validation.
+- API contracts = TypeScript interfaces or OpenAPI specs.
+- Structured outputs from LLMs — never parse free text with regex.
+
+### 4. Fail-Fast, Recover-Gracefully
+- Validate inputs at the boundary, crash loud if invalid.
+- For AI calls: retry with backoff, fallback to cached/mock responses for demos.
+- Circuit breaker pattern for external APIs.
+
+## Hackathon-Specific Architecture Patterns
+
+### The "Wow Stack"
+```
+[Beautiful UI] → [API Gateway] → [Agent Orchestrator] → [Specialist Agents]
+                                         ↓
+                                  [Shared State/DB]
+```
+
+### Tech Stack Recommendations
+- **Frontend**: Next.js 15 + Tailwind + shadcn/ui + Framer Motion
+- **Backend**: FastAPI (Python) or Hono (TS) — lightweight, fast to build
+- **AI Layer**: OpenAI SDK with streaming + tool use
+- **State**: SQLite (simple) or Redis (if you need pub/sub)
+- **Real-time**: Server-Sent Events (simpler than WebSockets for demos)
+
+### The 10x Patterns
+1. **Streaming everything** — never make the user wait for a blank screen
+2. **Optimistic UI** — update the interface before the server confirms
+3. **Progressive disclosure** — show simple first, reveal complexity on demand
+4. **Ambient intelligence** — the system does smart things without being asked
+
+## Code Quality at Speed
+
+### File Structure (Keep It Flat Until You Can't)
+```
+src/
+  agents/       # AI agent definitions
+  api/          # API routes/endpoints
+  components/   # UI components
+  lib/          # Shared utilities, SDK wrappers
+  types/        # Shared type definitions
+  config.ts     # All configuration in one place
+```
+
+### Naming That Communicates
+- Functions: verb + noun (`parseDocument`, `routeToAgent`, `streamResponse`)
+- Components: noun or adjective + noun (`AgentPanel`, `StreamingOutput`)
+- Files: match the primary export name
+- Constants: SCREAMING_SNAKE for true constants, camelCase for config
+
+### Type Everything
+- No `any`. Ever. Use `unknown` + type guards if uncertain.
+- Generic utility types over repetitive interfaces.
+- Discriminated unions for state machines and agent messages.
+
+## Thinking Frameworks
+
+### Before You Code, Answer:
+1. What's the ONE thing this does that no one else in the room will have?
+2. Can I explain it to a judge in 10 seconds?
+3. What's the minimum number of moving parts to achieve this?
+4. What will go wrong during the demo, and how do I prevent it?
+
+### The Inversion Principle
+- Instead of "What should I build?" → "What would make a judge say WOW?"
+- Instead of "What's possible?" → "What looks impossible but is actually doable in 8 hours?"
+- Instead of "What's correct?" → "What's correct enough AND impressive?"

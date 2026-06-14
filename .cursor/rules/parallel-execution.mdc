@@ -1,0 +1,23 @@
+---
+description: Maximize parallel execution and speed
+alwaysApply: true
+---
+
+# Parallel Execution Rules
+
+## Task Parallelism
+- When multiple files need creation, create them all in one batch.
+- When multiple installs are needed, combine into one command.
+- Run linting, testing, and building in parallel where possible.
+- Use concurrent API calls (Promise.all / asyncio.gather) for independent requests.
+
+## Worktree Strategy
+- Use git worktrees for experimenting with different approaches simultaneously.
+- Main branch = stable demo. Feature branches = experiments.
+- If an experiment works, merge fast. If not, abandon without guilt.
+
+## Speed Multipliers
+- Use `npx create-next-app` / `npx create-vite` for instant project scaffolding.
+- Use Docker Compose for multi-service setups instead of manual config.
+- Use ngrok/localtunnel for instant public URLs during demos.
+- Pre-build common utilities rather than reinventing.

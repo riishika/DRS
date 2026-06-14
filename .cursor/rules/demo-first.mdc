@@ -1,0 +1,26 @@
+---
+description: Demo-first development approach for judges
+alwaysApply: true
+---
+
+# Demo-First Development
+
+## Judge Psychology
+- Judges see 20+ demos. Yours needs to grab attention in 30 seconds.
+- Lead with the WOW moment, not the architecture explanation.
+- Have a compelling one-liner: "It's like [known thing] but [differentiator]."
+- Show, don't tell. Live demos > slides > descriptions.
+
+## Demo Checklist
+- [ ] Works offline / has fallback if API is slow
+- [ ] Has pre-loaded example data for instant demo
+- [ ] UI is polished enough to not distract from the idea
+- [ ] Can explain the idea in one sentence
+- [ ] Has a clear "before vs after" narrative
+- [ ] Records a backup video in case live demo fails
+
+## Technical Demo Tips
+- Add loading states and animations — they buy time and look polished.
+- Use WebSockets or SSE for real-time streaming effects.
+- Have a "reset demo" button/script for quick restarts.
+- Keep terminal output clean during demos (use logging levels).

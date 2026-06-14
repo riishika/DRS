@@ -1,0 +1,97 @@
+---
+description: Production-grade code patterns adapted for hackathon speed
+alwaysApply: true
+---
+
+# Code Patterns
+
+## TypeScript Patterns
+
+### Strict Config (tsconfig.json essentials)
+- `strict: true` always
+- `noUncheckedIndexedAccess: true`
+- `exactOptionalPropertyTypes: true`
+
+### Result Pattern Over Try-Catch Soup
+```typescript
+type Result<T, E = Error> = { ok: true; data: T } | { ok: false; error: E }
+```
+Use for anything that can fail (API calls, parsing, validation).
+
+### Dependency Injection via Factory Functions
+```typescript
+function createAgent(deps: { llm: LLMClient; store: Store }) {
+  return { execute: async (task: Task) => { /* ... */ } }
+}
+```
+Makes testing trivial, makes swapping implementations instant.
+
+### Branded Types for IDs
+```typescript
+type UserId = string & { __brand: 'UserId' }
+type AgentId = string & { __brand: 'AgentId' }
+```
+Prevents passing wrong IDs to wrong functions.
+
+## Python Patterns
+
+### Pydantic Models for Everything
+```python
+class AgentResponse(BaseModel):
+    action: Literal["search", "create", "update"]
+    payload: dict
+    confidence: float = Field(ge=0, le=1)
+```
+
+### Async Generators for Streaming
+```python
+async def stream_agent_response(prompt: str):
+    async for chunk in client.chat.completions.create(stream=True, ...):
+        yield chunk.choices[0].delta.content
+```
+
+### Functional Core, Imperative Shell
+- Pure functions for logic (easy to test, easy to reason about).
+- Side effects only at the edges (API handlers, CLI entry points).
+
+## AI/Agent Patterns
+
+### Structured Tool Definitions
+```typescript
+const tools = [{
+  type: "function",
+  function: {
+    name: "search_documents",
+    description: "Search the knowledge base for relevant documents",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query" },
+        limit: { type: "number", description: "Max results", default: 5 }
+      },
+      required: ["query"]
+    }
+  }
+}] as const
+```
+
+### Agent Loop Pattern
+```
+while not done:
+  1. LLM decides action (tool call or final answer)
+  2. Execute tool → get observation
+  3. Feed observation back to LLM
+  4. Check termination conditions (max steps, success, error)
+```
+
+### Prompt Engineering at Speed
+- System prompt: role + constraints + output format. Keep under 500 tokens.
+- Use few-shot examples over lengthy instructions.
+- Put the most important instruction LAST (recency bias).
+- Use XML tags or markdown headers to structure long prompts.
+
+## Performance Patterns
+- Memoize expensive computations (LRU cache, React.memo).
+- Debounce user inputs before triggering AI calls.
+- Use AbortController to cancel stale requests.
+- Prefetch likely next actions while user reads current results.

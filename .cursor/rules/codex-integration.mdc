@@ -1,0 +1,24 @@
+---
+description: OpenAI Codex integration patterns
+alwaysApply: true
+---
+
+# OpenAI Codex Integration
+
+## API Usage
+- Use the latest OpenAI SDK (`openai` package).
+- Default model: `o3` for complex reasoning, `gpt-4.1` for fast responses, `codex-mini` for code tasks.
+- Always stream responses for better UX.
+- Use structured outputs (response_format) when parsing AI responses.
+- Handle rate limits with exponential backoff.
+
+## Agentic Patterns
+- Use tool/function calling for agent actions.
+- Keep system prompts concise and action-oriented.
+- Implement retry logic for flaky tool executions.
+- Log all agent actions for debugging.
+- Use Codex's parallel task execution for independent subtasks.
+
+## Environment
+- Store `OPENAI_API_KEY` in `.env` (never commit).
+- Use `OPENAI_ORG_ID` for organization-scoped requests.

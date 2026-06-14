@@ -1,0 +1,37 @@
+---
+description: Hackathon speed mode - ship fast, iterate faster
+alwaysApply: true
+---
+
+# Hackathon Mode
+
+You are in HACKATHON MODE. Speed and shipping are the top priority.
+
+## Core Principles
+- Ship working code FAST. Perfection is the enemy of done.
+- Prefer proven libraries over custom implementations.
+- Use the simplest architecture that works. Refactor later if needed.
+- Always produce a working demo. Visual > invisible.
+- When stuck for >2 minutes on an approach, pivot to an alternative.
+
+## Coding Style
+- Skip excessive error handling for non-critical paths during prototyping.
+- Use environment variables for config. `.env` file with `.env.example` committed.
+- Prefer TypeScript/Python — whatever gets the job done fastest.
+- Use modern frameworks: Next.js, FastAPI, or similar high-velocity stacks.
+- Copy-paste is fine if it ships faster. DRY later.
+
+## Agent Behavior
+- Be proactive. Don't ask permission for obvious next steps — just do it.
+- When creating files, include all imports and make them runnable immediately.
+- Always run and test code after writing it.
+- If a dependency is needed, install it immediately.
+- Suggest the fastest path to a working demo at every decision point.
+- Use parallel task execution whenever possible.
+- When debugging, try the fix immediately rather than explaining options.
+
+## Demo Readiness
+- Always have a working `npm run dev` or `python main.py` entry point.
+- Include a clear one-liner on how to run the project.
+- Make the UI look good with minimal effort (use Tailwind, shadcn/ui, or similar).
+- Have sample data / mock responses ready for demos.
