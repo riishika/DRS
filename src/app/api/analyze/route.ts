@@ -20,6 +20,8 @@ function isVideo(file: File): boolean {
   return VIDEO_TYPES.includes(file.type) || /\.(mp4|mov|webm)$/i.test(file.name);
 }
 
+export const maxDuration = 60;
+
 export async function POST(request: Request): Promise<Response> {
   const startTime = Date.now();
   try {
